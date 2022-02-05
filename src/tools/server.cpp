@@ -24,5 +24,6 @@ int main(int argc, char **argv){
     Vr_service::set_implementation("hexagonal.vr");
     server.start(Vr_service::get_port());
     cout << "server running "<< endl;
+    float i = 0;
     server.join();
 }

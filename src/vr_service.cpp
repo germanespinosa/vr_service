@@ -143,4 +143,9 @@ namespace vr {
     Vr_server::Vr_server() {
         vr_server = this;
     }
+
+    void Vr_server::on_new_connection(Vr_service &new_connection) {
+        cout << "New connection" << endl;
+        Message_server::on_new_connection(new_connection);
+    }
 }

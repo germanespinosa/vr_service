@@ -30,5 +30,6 @@ namespace vr {
     struct Vr_server : tcp_messages::Message_server<Vr_service> {
         Vr_server();
         static void set_ghost_movement(float forward, float rotation);
+        void on_new_connection(Vr_service &new_connection) override;
     };
 }
