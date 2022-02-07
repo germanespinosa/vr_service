@@ -18,8 +18,21 @@ else {
 
 Invoke-Expression "netsh interface portproxy reset";
 
-for ($i = 0; $i -lt $args.length; $i++) {
-  $port = $args[$i];
+$portl = $args
+$portl+= "4500"
+$portl+= "4510"
+$portl+= "4520"
+$portl+= "4530"
+$portl+= "4540"
+$portl+= "4550"
+$portl+= "4560"
+$portl+= "4570"
+$portl+= "4580"
+$portl+= "4590"
+$portl+= "4600"
+
+for ($i = 0; $i -lt $portl.length; $i++) {
+  $port = $portl[$i];
   Invoke-Expression "netsh interface portproxy add v4tov4 listenport=$port connectport=$port connectaddress=$remoteport";
   Invoke-Expression "netsh advfirewall firewall add rule name=$port dir=in action=allow protocol=TCP localport=$port";
 }
