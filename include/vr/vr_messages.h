@@ -17,8 +17,10 @@ namespace vr {
     struct Vr_start_episode_response : json_cpp::Json_object{
         Json_object_members(
                 Add_member(occlusions);
+                Add_member(predator_spawn_location);
         );
         cell_world::Cell_group_builder occlusions;
+        cell_world::Location predator_spawn_location;
     };
     struct Vr_finish_episode_request : json_cpp::Json_object{
         Json_object_members(

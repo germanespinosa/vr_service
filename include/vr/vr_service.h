@@ -18,12 +18,15 @@ namespace vr {
         static Vr_start_episode_response start_episode (const Vr_start_episode_request &);
         static Vr_finish_episode_response finish_episode (const Vr_finish_episode_request &);
         static void start_tracking_service(int port);
+        static void start_ghost(int port);
         static int get_port();
         static bool connect_experiment_service(const std::string  &ip);
         static void set_ghost_forward_speed(float);
         static void set_ghost_rotation_speed(float);
-        static void set_configuration(const std::string &configuration_name);
-        static void set_implementation(const std::string &implementation_name);
+        static void set_world(const cell_world::World_configuration &, const cell_world::World_implementation &);
+        static void set_ghost_min_distance(float);
+        static void set_prey_start_location(const cell_world::Location &);
+        static void set_tracking_space(const cell_world::Space &);
     };
 
 

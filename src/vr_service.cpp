@@ -10,15 +10,29 @@ using namespace experiment;
 using namespace cell_world;
 
 namespace vr {
+
+    struct Active_experiment_data {
+        string experiment_name;
+        Cell_group_builder occlusions;
+        Location_list ghost_spawn_locations;
+        bool is_active;
+    };
+
     Tracking_server vr_tracking;
     Vr_server *vr_server = nullptr;
-    map<int, Start_experiment_response> active_experiments;
-    Start_experiment_response last_experiment_started;
+    map<int, Active_experiment_data> active_experiments;
+    Active_experiment_data last_experiment_started;
     bool pending_participant = false;
     float forward_speed = 1.0;
     float rotation_speed = 1.0;
+    float ghost_min_distance = 0;
+    Location prey_start_location;
     World_configuration configuration;
     World_implementation implementation;
+    Space tracking_space;
+    World world;
+    Scale vr_scale(-1,1);
+
 
     struct Ghost : easy_tcp::Service {
         void on_incoming_data(const char *buff, int size) override{
@@ -29,18 +43,28 @@ namespace vr {
             }
         }
     };
+
     easy_tcp::Server<Ghost> ghost;
 
-
     struct : experiment::Experiment_client {
-        void on_experiment_started(const Start_experiment_response &experiment) override {
-            last_experiment_started = experiment;
+        void on_experiment_started(const Start_experiment_response  &experiment) override {
+            last_experiment_started.experiment_name = experiment.experiment_name;
+            last_experiment_started.occlusions = Resources::from("cell_group").key(experiment.world.world_configuration).key(experiment.world.occlusions).key("occlusions").get_resource<Cell_group_builder>();
+            last_experiment_started.is_active = true;
+            world.set_occlusions(last_experiment_started.occlusions);
+            auto free_cells = world.create_cell_group().free_cells();
+            last_experiment_started.ghost_spawn_locations.clear();
+            for (auto &cell:free_cells){
+                auto location = cell.get().location;
+                if (prey_start_location.dist(location)>ghost_min_distance)
+                    last_experiment_started.ghost_spawn_locations.push_back(location);
+            }
             pending_participant = true;
             cout << "Experiment " << experiment.experiment_name << " started, waiting for participant" << endl;
         };
 
         void on_experiment_finished(const std::string &experiment_name) override {
-            map<int, Start_experiment_response>::iterator it;
+            map<int, Active_experiment_data>::iterator it;
             for(it=active_experiments.begin(); it!=active_experiments.end(); ++it){
                 if (it->second.experiment_name == experiment_name) {
                     active_experiments.erase(it->first );
@@ -54,16 +78,17 @@ namespace vr {
         cell_world::Step step;
         step.agent_name = agent_state.agent_name;
         step.frame = agent_state.frame;
-        step.location = agent_state.location.to_location();
+        step.location = implementation.space.scale(agent_state.location.to_location(), Scale{-1,1});
         step.rotation = agent_state.rotation.yaw;
         step.time_stamp = agent_state.time_stamp;
-        agent_tracking::Tracking_service::send_step(step);
-        cout << agent_state << endl;
+        auto converted = step.convert(implementation.space, tracking_space);
+        vr_tracking.send_step(converted);
+        cout << converted << endl;
     }
 
     Vr_start_episode_response Vr_service::start_episode(const Vr_start_episode_request &parameters) {
         Vr_start_episode_response response;
-        Start_experiment_response experiment;
+        Active_experiment_data experiment;
         if (pending_participant) { // first episode of the new experiment
             experiment = last_experiment_started;
             cout << "Experiment " << experiment.experiment_name << "associated to participant " << parameters.participant_id;
@@ -77,9 +102,11 @@ namespace vr {
                 return response;
             }
         }
-        cout << "Starting episode for experiment " << experiment.experiment_name;
+        cout << "Starting episode for experiment " << experiment.experiment_name <<  endl;
         experiment_client.start_episode(experiment.experiment_name);
-        response.occlusions = Resources::from("cell_group").key(experiment.world.world_configuration).key(experiment.world.occlusions).key("occlusions").get_resource<Cell_group_builder>();
+        response.occlusions = experiment.occlusions;
+        response.predator_spawn_location = experiment.ghost_spawn_locations[cell_world::Chance::dice(experiment.ghost_spawn_locations.size())];
+        cout << response << endl;
         return response;
     }
 
@@ -95,10 +122,10 @@ namespace vr {
     Vr_finish_episode_response Vr_service::finish_episode(const Vr_finish_episode_request &parameters) {
         Vr_finish_episode_response response;
         if (active_experiments.contains(parameters.participant_id)){
-            auto experiment = active_experiments[parameters.participant_id];
+            auto &experiment = active_experiments[parameters.participant_id];
             experiment_client.finish_episode();
             cout << "Starting episode for experiment " << experiment.experiment_name;
-            response.is_active = experiment_client.is_active(experiment.experiment_name);
+            experiment.is_active = experiment_client.is_active(experiment.experiment_name);
         }
         return response;
     }
@@ -110,6 +137,7 @@ namespace vr {
     bool Vr_service::connect_experiment_service(const string &ip) {
         if (experiment_client.connect(ip)) {
             experiment_client.set_tracking_service_ip("127.0.0.1");
+            experiment_client.subscribe();
             return true;
         }
         return false;
@@ -123,12 +151,27 @@ namespace vr {
         rotation_speed = new_rotation_speed;
     }
 
-    void Vr_service::set_configuration(const string &configuration_name) {
-        configuration = Resources::from("world_configuration").key(configuration_name).get_resource<World_configuration>();
+    void Vr_service::set_world(const cell_world::World_configuration &new_configuration, const cell_world::World_implementation &new_implementation) {
+        configuration = new_configuration;
+        implementation = new_implementation;
+        implementation.scale(vr_scale);
+        world = World(configuration, implementation);
     }
 
-    void Vr_service::set_implementation(const string &implementation_name) {
-        implementation = Resources::from("world_implementation").key(implementation_name).get_resource<World_implementation>();
+    void Vr_service::set_ghost_min_distance(float new_min_distance) {
+        ghost_min_distance = new_min_distance;
+    }
+
+    void Vr_service::set_prey_start_location(const cell_world::Location &new_location) {
+        prey_start_location = new_location;
+    }
+
+    void Vr_service::start_ghost(int port) {
+        ghost.start(port);
+    }
+
+    void Vr_service::set_tracking_space(const Space &new_tracking_space) {
+        tracking_space = new_tracking_space;
     }
 
     void Vr_server::set_ghost_movement(float forward, float rotation) {
