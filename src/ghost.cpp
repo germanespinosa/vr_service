@@ -23,7 +23,7 @@ namespace vr {
 
     bool Ghost::update() {
         if (need_update) {
-            server.set_ghost_movement(left + right, right - left );
+            server.set_ghost_movement((left + right) * forward_speed, (left - right) * rotation_speed);
             need_update = false;
         }
         return true;
