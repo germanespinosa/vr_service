@@ -2,12 +2,14 @@
 #include <experiment/experiment_client.h>
 #include <agent_tracking/tracking_service.h>
 #include <easy_tcp.h>
+#include <controller/agent.h>
 #include <map>
 
 using namespace std;
 using namespace agent_tracking;
 using namespace experiment;
 using namespace cell_world;
+using namespace controller;
 
 namespace vr {
 
@@ -23,8 +25,8 @@ namespace vr {
     map<int, Active_experiment_data> active_experiments;
     Active_experiment_data last_experiment_started;
     bool pending_participant = false;
-    float forward_speed = 1.0;
-    float rotation_speed = 1.0;
+    float forward_speed = .5;
+    float rotation_speed = .5;
     float ghost_min_distance = 0;
     Location prey_start_location;
     World_configuration configuration;
@@ -33,18 +35,6 @@ namespace vr {
     World world;
     Scale vr_scale(-1,1);
 
-
-    struct Ghost : easy_tcp::Service {
-        void on_incoming_data(const char *buff, int size) override{
-            if (size == 3){ // instruction
-                float left = buff[0];
-                float right = buff[1];
-                Vr_server::set_ghost_movement((right + left) * forward_speed, (right - left) * rotation_speed);
-            }
-        }
-    };
-
-    easy_tcp::Server<Ghost> ghost;
 
     struct : experiment::Experiment_client {
         void on_experiment_started(const Start_experiment_response  &experiment) override {
@@ -79,11 +69,10 @@ namespace vr {
         step.agent_name = agent_state.agent_name;
         step.frame = agent_state.frame;
         step.location = implementation.space.scale(agent_state.location.to_location(), Scale{-1,1});
-        step.rotation = agent_state.rotation.yaw;
+        step.rotation = agent_state.rotation.yaw - 90;
         step.time_stamp = agent_state.time_stamp;
         auto converted = step.convert(implementation.space, tracking_space);
         vr_tracking.send_step(converted);
-        cout << converted << endl;
     }
 
     Vr_start_episode_response Vr_service::start_episode(const Vr_start_episode_request &parameters) {
@@ -122,10 +111,13 @@ namespace vr {
     Vr_finish_episode_response Vr_service::finish_episode(const Vr_finish_episode_request &parameters) {
         Vr_finish_episode_response response;
         if (active_experiments.contains(parameters.participant_id)){
-            auto &experiment = active_experiments[parameters.participant_id];
-            experiment_client.finish_episode();
-            cout << "Starting episode for experiment " << experiment.experiment_name;
-            experiment.is_active = experiment_client.is_active(experiment.experiment_name);
+            thread async_finish_episode ( [] (Vr_finish_episode_request parameters) {
+                auto &experiment = active_experiments[parameters.participant_id];
+                experiment_client.finish_episode();
+                cout << "Starting episode for experiment " << experiment.experiment_name;
+                experiment.is_active = experiment_client.is_active(experiment.experiment_name);
+            }, parameters);
+            async_finish_episode.detach();
         }
         return response;
     }
@@ -143,14 +135,6 @@ namespace vr {
         return false;
     }
 
-    void Vr_service::set_ghost_forward_speed(float new_forward_speed) {
-        forward_speed = new_forward_speed;
-    }
-
-    void Vr_service::set_ghost_rotation_speed(float new_rotation_speed) {
-        rotation_speed = new_rotation_speed;
-    }
-
     void Vr_service::set_world(const cell_world::World_configuration &new_configuration, const cell_world::World_implementation &new_implementation) {
         configuration = new_configuration;
         implementation = new_implementation;
@@ -166,10 +150,6 @@ namespace vr {
         prey_start_location = new_location;
     }
 
-    void Vr_service::start_ghost(int port) {
-        ghost.start(port);
-    }
-
     void Vr_service::set_tracking_space(const Space &new_tracking_space) {
         tracking_space = new_tracking_space;
     }
@@ -180,6 +160,7 @@ namespace vr {
         parameters.rotation = rotation;
         if (vr_server) {
             vr_server->broadcast_subscribed(tcp_messages::Message("update_ghost_movement",parameters));
+            cout << parameters << endl;
         }
     }
 
@@ -190,5 +171,11 @@ namespace vr {
     void Vr_server::on_new_connection(Vr_service &new_connection) {
         cout << "New connection" << endl;
         Message_server::on_new_connection(new_connection);
+    }
+
+    void Vr_server::capture() {
+        if (vr_server) {
+            vr_server->broadcast_subscribed(tcp_messages::Message("capture"));
+        }
     }
 }

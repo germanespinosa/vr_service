@@ -5,6 +5,8 @@
 #include <vr/vr_messages.h>
 
 namespace vr {
+    struct Vr_server;
+
     struct Vr_service : tcp_messages::Message_service {
         Routes (
                 Add_route_with_response("get_world_implementation", get_world_implementation);
@@ -18,11 +20,8 @@ namespace vr {
         static Vr_start_episode_response start_episode (const Vr_start_episode_request &);
         static Vr_finish_episode_response finish_episode (const Vr_finish_episode_request &);
         static void start_tracking_service(int port);
-        static void start_ghost(int port);
         static int get_port();
         static bool connect_experiment_service(const std::string  &ip);
-        static void set_ghost_forward_speed(float);
-        static void set_ghost_rotation_speed(float);
         static void set_world(const cell_world::World_configuration &, const cell_world::World_implementation &);
         static void set_ghost_min_distance(float);
         static void set_prey_start_location(const cell_world::Location &);
@@ -32,7 +31,8 @@ namespace vr {
 
     struct Vr_server : tcp_messages::Message_server<Vr_service> {
         Vr_server();
-        static void set_ghost_movement(float forward, float rotation);
+        void set_ghost_movement(float forward, float rotation);
+        void capture();
         void on_new_connection(Vr_service &new_connection) override;
     };
 }
