@@ -1,9 +1,6 @@
 #include <cell_world.h>
 #include <vr/vr_service.h>
 #include <iostream>
-#include <agent_tracking.h>
-#include <params_cpp.h>
-#include <experiment.h>
 #include <vr/ghost.h>
 
 using namespace controller;
@@ -11,34 +8,52 @@ using namespace std;
 using namespace tcp_messages;
 using namespace vr;
 using namespace agent_tracking;
-using namespace params_cpp;
 using namespace experiment;
 using namespace cell_world;
 
 int main(int argc, char **argv){
-    Experiment_server experiment_server;
-    experiment_server.start(Experiment_service::get_port());
     controller::Agent_operational_limits limits;
     limits.load("../config/ghost_operational_limits.json");
-    Vr_server server;
-    Vr_service::start_tracking_service(Tracking_service::get_port());
-    Experiment_service::set_tracking_service_ip("127.0.0.1");
-    Vr_service::connect_experiment_service("127.0.0.1");
+
+    Vr_server vr_server;
+    vr_server.ghost_min_distance = 300;
+
+    if (!vr_server.experiment_server.start(Experiment_service::get_port())){
+        cout << "Failed to start experiment service" << endl;
+        exit(1);
+    }
+
     auto configuration = Resources::from("world_configuration").key("hexagonal").get_resource<World_configuration>();
     auto implementation = Resources::from("world_implementation").key("hexagonal").key("vr").get_resource<World_implementation>();
-    auto tracking_space =  Resources::from("world_implementation").key("hexagonal").key("canonical").get_resource<World_implementation>().space;
-    Vr_service::set_tracking_space(tracking_space);
-    auto world = World(configuration,implementation);
-    Vr_service::set_world(configuration, implementation);
-    auto map = Map(world.create_cell_group());
-    Vr_service::set_prey_start_location(map[Coordinates(-20,0)].location);
-    Vr_service::set_ghost_min_distance(300);
-    server.start(Vr_service::get_port());
+    vr_server.tracking_space =  Resources::from("world_implementation").key("hexagonal").key("canonical").get_resource<World_implementation>().space;
+    auto capture_parameters = Resources::from("capture_parameters").key("default").get_resource<Capture_parameters>();
+    auto peeking_parameters = Resources::from("peeking_parameters").key("default").get_resource<Peeking_parameters>();
 
-    Ghost ghost(limits, server);
-    Controller_server controller("../config/pid.json", ghost, "127.0.0.1", "127.0.0.1");
+
+    vr_server.set_world(configuration, implementation);
+    vr_server.ghost_min_distance = 300;
+    vr_server.start(Vr_service::get_port());
+    auto &world = vr_server.world;
+    auto cells = world.create_cell_group();
+    Location_visibility visibility(cells, configuration.cell_shape, implementation.cell_transformation);
+    Capture capture(capture_parameters, world);
+    Peeking peeking(peeking_parameters, world);
+
+
+    auto &controller_experiment_client = vr_server.experiment_server.create_local_client<Controller_server::Controller_experiment_client>();
+    auto &controller_tracking_service = vr_server.tracking_server.create_local_client<Controller_server::Controller_tracking_client>(
+            visibility,
+            float(90),
+            capture,
+            peeking,
+            "predator",
+            "prey");
+
+    Ghost ghost(limits, vr_server);
+
+    Controller_server controller("../config/pid.json", ghost, controller_tracking_service, controller_experiment_client);
     controller.start(Controller_service::get_port());
 
     cout << "server running "<< endl;
-    server.join();
+    vr_server.join();
 }
