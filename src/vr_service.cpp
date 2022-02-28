@@ -114,6 +114,38 @@ namespace vr {
     }
 
     Vr_server::Vr_server() : experiment_client(experiment_server.create_local_client<Vr_experiment_client>()){
+        experiment_client.vr_server = this;
+        if (!experiment_server.start(Experiment_service::get_port())){
+            cout << "Failed to start experiment service" << endl;
+            exit(1);
+        }
         experiment_client.subscribe();
     }
+
+    void Vr_server::Vr_experiment_client::on_experiment_started(const Start_experiment_response &experiment) {
+        vr_server->last_experiment_started.experiment_name = experiment.experiment_name;
+        vr_server->last_experiment_started.occlusions = cell_world::Resources::from("cell_group").key(experiment.world.world_configuration).key(experiment.world.occlusions).key("occlusions").get_resource<cell_world::Cell_group_builder>();
+        vr_server->last_experiment_started.is_active = true;
+        vr_server->world.set_occlusions(vr_server->last_experiment_started.occlusions);
+        auto free_cells = vr_server->world.create_cell_group().free_cells();
+        vr_server->last_experiment_started.ghost_spawn_locations.clear();
+        for (auto &cell:free_cells){
+            auto location = cell.get().location;
+            if (vr_server->prey_start_location.dist(location)>vr_server->ghost_min_distance)
+                vr_server->last_experiment_started.ghost_spawn_locations.push_back(location);
+        }
+        vr_server->pending_participant = true;
+        std::cout << "Experiment " << experiment.experiment_name << " started, waiting for participant" << std::endl;
+    }
+
+    void Vr_server::Vr_experiment_client::on_experiment_finished(const string &experiment_name) {
+        std::map<int, Vr_server::Active_experiment_data>::iterator it;
+        for(it=vr_server->active_experiments.begin(); it!=vr_server->active_experiments.end(); ++it){
+            if (it->second.experiment_name == experiment_name) {
+                vr_server->active_experiments.erase(it->first);
+                std::cout << "Closing experiment " << experiment_name << " for participant " << it->first << std::endl;
+            }
+        }
+    }
+
 }

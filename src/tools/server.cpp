@@ -18,11 +18,6 @@ int main(int argc, char **argv){
     Vr_server vr_server;
     vr_server.ghost_min_distance = 300;
 
-    if (!vr_server.experiment_server.start(Experiment_service::get_port())){
-        cout << "Failed to start experiment service" << endl;
-        exit(1);
-    }
-
     auto configuration = Resources::from("world_configuration").key("hexagonal").get_resource<World_configuration>();
     auto implementation = Resources::from("world_implementation").key("hexagonal").key("vr").get_resource<World_implementation>();
     vr_server.tracking_space =  Resources::from("world_implementation").key("hexagonal").key("canonical").get_resource<World_implementation>().space;

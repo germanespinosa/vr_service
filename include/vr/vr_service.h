@@ -26,32 +26,10 @@ namespace vr {
 
 
     struct Vr_server : tcp_messages::Message_server<Vr_service> {
-        struct Vr_experiment_client : experiment::Experiment_client {
-            void on_experiment_started(const experiment::Start_experiment_response  &experiment) override {
-                vr_server->last_experiment_started.experiment_name = experiment.experiment_name;
-                vr_server->last_experiment_started.occlusions = cell_world::Resources::from("cell_group").key(experiment.world.world_configuration).key(experiment.world.occlusions).key("occlusions").get_resource<cell_world::Cell_group_builder>();
-                vr_server->last_experiment_started.is_active = true;
-                vr_server->world.set_occlusions(vr_server->last_experiment_started.occlusions);
-                auto free_cells = vr_server->world.create_cell_group().free_cells();
-                vr_server->last_experiment_started.ghost_spawn_locations.clear();
-                for (auto &cell:free_cells){
-                    auto location = cell.get().location;
-                    if (vr_server->prey_start_location.dist(location)>vr_server->ghost_min_distance)
-                        vr_server->last_experiment_started.ghost_spawn_locations.push_back(location);
-                }
-                vr_server->pending_participant = true;
-                std::cout << "Experiment " << experiment.experiment_name << " started, waiting for participant" << std::endl;
-            };
 
-            void on_experiment_finished(const std::string &experiment_name) override {
-                std::map<int, Vr_server::Active_experiment_data>::iterator it;
-                for(it=vr_server->active_experiments.begin(); it!=vr_server->active_experiments.end(); ++it){
-                    if (it->second.experiment_name == experiment_name) {
-                        vr_server->active_experiments.erase(it->first);
-                        std::cout << "Closing experiment " << experiment_name << " for participant " << it->first << std::endl;
-                    }
-                }
-            };
+        struct Vr_experiment_client : experiment::Experiment_client {
+            void on_experiment_started(const experiment::Start_experiment_response  &experiment) override;
+            void on_experiment_finished(const std::string &experiment_name) override;
             Vr_server *vr_server;
         };
 
@@ -63,7 +41,7 @@ namespace vr {
         };
 
         Vr_server();
-        cell_world::World_implementation get_world_implementation() const;
+        [[nodiscard]] cell_world::World_implementation get_world_implementation() const;
         Vr_start_episode_response start_episode (const Vr_start_episode_request &);
         Vr_finish_episode_response finish_episode (const Vr_finish_episode_request &);
         void set_ghost_movement(float forward, float rotation);
@@ -71,12 +49,9 @@ namespace vr {
         void on_new_connection(Vr_service &new_connection) override;
         void set_agent_state (const Agent_state &);
         void set_world(const cell_world::World_configuration &, const cell_world::World_implementation &);
-
         experiment::Experiment_server experiment_server;
-
         agent_tracking::Tracking_server tracking_server;
         Vr_experiment_client &experiment_client;
-
         Active_experiment_data last_experiment_started;
         std::map<int, Active_experiment_data> active_experiments;
         cell_world::World_configuration configuration;
