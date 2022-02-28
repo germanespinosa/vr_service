@@ -3,7 +3,7 @@ If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
   Start-Process powershell -Verb runAs -ArgumentList $arguments
   Break
 }
-$ifconfig = wsl.exe -d Ubuntu-20.04 ifconfig eth0
+$ifconfig = wsl.exe ifconfig eth0
 $remoteport = $ifconfig| Select-String -Pattern "inet "
 $found = $remoteport -match '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}';
 
