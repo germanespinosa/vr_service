@@ -1,9 +1,9 @@
 #pragma once
 #include <controller.h>
-#include <vr/vr_service.h>
-
 
 namespace vr {
+    struct Vr_server;
+
     struct Ghost : controller::Agent {
 
         Ghost(controller::Agent_operational_limits &limits, Vr_server &server);

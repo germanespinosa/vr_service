@@ -37,14 +37,6 @@ namespace vr {
         return server->get_world_implementation();
     }
 
-    void Vr_server::set_world(const cell_world::World_configuration &new_configuration, const cell_world::World_implementation &new_implementation) {
-        configuration = new_configuration;
-        implementation = new_implementation;
-        implementation.scale(vr_scale);
-        world = World(configuration, implementation);
-    }
-
-
     void Vr_server::set_ghost_movement(float forward, float rotation) {
         Vr_update_ghost_movement parameters;
         parameters.forward = forward;
@@ -57,12 +49,12 @@ namespace vr {
         Message_server::on_new_connection(new_connection);
     }
 
-    void Vr_server::capture() {
+    void Vr_server::new_capture() {
         broadcast_subscribed(Message("capture"));
     }
 
     cell_world::World_implementation Vr_server::get_world_implementation() const {
-        return implementation;
+        return vr_implementation;
     }
 
     Vr_start_episode_response Vr_server::start_episode(const Vr_start_episode_request &parameters) {
@@ -70,7 +62,7 @@ namespace vr {
         Active_experiment_data experiment;
         if (pending_participant) { // first episode of the new experiment
             experiment = last_experiment_started;
-            cout << "Experiment " << experiment.experiment_name << "associated to participant " << parameters.participant_id;
+            cout << "Experiment " << experiment.experiment_name << " associated to participant " << parameters.participant_id << endl;
             active_experiments[parameters.participant_id] = experiment;
             pending_participant = false;
         } else {  // if not new experiment
@@ -106,36 +98,80 @@ namespace vr {
         cell_world::Step step;
         step.agent_name = agent_state.agent_name;
         step.frame = agent_state.frame;
-        step.location = implementation.space.scale(agent_state.location.to_location(), Scale{-1,1});
+        step.location = vr_implementation.space.scale(agent_state.location.to_location(), Scale{-1,1});
         step.rotation = agent_state.rotation.yaw - 90;
         step.time_stamp = agent_state.time_stamp;
-        auto converted = step.convert(implementation.space, tracking_space);
+        auto converted = step.convert(vr_implementation.space, canonical_implementation.space);
         tracking_server.send_step(converted);
     }
 
-    Vr_server::Vr_server() : experiment_client(experiment_server.create_local_client<Vr_experiment_client>()){
+    Vr_server::Vr_server(
+            const cell_world::World_configuration &configuration,
+            const cell_world::World_implementation &vr_implementation,
+            const cell_world::World_implementation &canonical_implementation) :
+            experiment_server(),
+            tracking_server(),
+            configuration(configuration),
+            vr_implementation(vr_implementation),
+            vr_world(configuration, vr_implementation),
+            canonical_implementation(canonical_implementation),
+            canonical_world(configuration, canonical_implementation),
+            canonical_visibility(canonical_world.create_location_visibility()),
+            capture(Resources::from("capture_parameters").key("default").get_resource<Capture_parameters>(), canonical_world),
+            peeking(Resources::from("peeking_parameters").key("default").get_resource<Peeking_parameters>(), canonical_world),
+            experiment_tracking_client(tracking_server.create_local_client<Experiment_tracking_client>()),
+            controller_tracking_client(tracking_server.create_local_client<Controller_server::Controller_tracking_client>(
+                    canonical_visibility,
+                    float(90),
+                    capture,
+                    peeking,
+                    "predator",
+                    "prey")),
+            ghost_operational_limits(json_cpp::Json_from_file<Agent_operational_limits>("../config/ghost_operational_limits.json")),
+            ghost(ghost_operational_limits, *this ),
+            controller_server(
+                "../config/pid.json",
+                ghost,
+                controller_tracking_client,
+                experiment_server.create_local_client<Controller_server::Controller_experiment_client>()),
+                experiment_client(experiment_server.create_local_client<Vr_experiment_client>()
+            ){
+        pending_participant = false;
         experiment_client.vr_server = this;
         if (!experiment_server.start(Experiment_service::get_port())){
             cout << "Failed to start experiment service" << endl;
             exit(1);
         }
+        experiment_server.set_tracking_client(experiment_tracking_client);
         experiment_client.subscribe();
     }
 
-    void Vr_server::Vr_experiment_client::on_experiment_started(const Start_experiment_response &experiment) {
-        vr_server->last_experiment_started.experiment_name = experiment.experiment_name;
-        vr_server->last_experiment_started.occlusions = cell_world::Resources::from("cell_group").key(experiment.world.world_configuration).key(experiment.world.occlusions).key("occlusions").get_resource<cell_world::Cell_group_builder>();
-        vr_server->last_experiment_started.is_active = true;
-        vr_server->world.set_occlusions(vr_server->last_experiment_started.occlusions);
-        auto free_cells = vr_server->world.create_cell_group().free_cells();
-        vr_server->last_experiment_started.ghost_spawn_locations.clear();
+    void Vr_server::set_occlusions(const Cell_group_builder &occlusions) {
+        canonical_world.set_occlusions(occlusions);
+        vr_world.set_occlusions(occlusions);
+        auto cells = canonical_world.create_cell_group();
+        capture.visibility.update_occlusions(cells);
+        peeking.peeking_visibility.update_occlusions(cells);
+        controller_server.navigability.update_occlusions(cells);
+    }
+
+    void Vr_server::on_experiment_started(const Start_experiment_response &experiment) {
+        last_experiment_started.experiment_name = experiment.experiment_name;
+        last_experiment_started.is_active = true;
+        last_experiment_started.occlusions = Cell_group_builder::get_from_parameters_name("hexagonal", experiment.world.occlusions + ".occlusions" );
+        auto free_cells = canonical_world.create_cell_group().free_cells();
+        last_experiment_started.ghost_spawn_locations.clear();
         for (auto &cell:free_cells){
             auto location = cell.get().location;
-            if (vr_server->prey_start_location.dist(location)>vr_server->ghost_min_distance)
-                vr_server->last_experiment_started.ghost_spawn_locations.push_back(location);
+            if (prey_start_location.dist(location)>ghost_min_distance)
+                last_experiment_started.ghost_spawn_locations.push_back(location);
         }
-        vr_server->pending_participant = true;
+        pending_participant = true;
         std::cout << "Experiment " << experiment.experiment_name << " started, waiting for participant" << std::endl;
+    }
+
+    void Vr_server::Vr_experiment_client::on_experiment_started(const Start_experiment_response &experiment) {
+        vr_server->on_experiment_started(experiment);
     }
 
     void Vr_server::Vr_experiment_client::on_experiment_finished(const string &experiment_name) {

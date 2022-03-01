@@ -12,43 +12,16 @@ using namespace experiment;
 using namespace cell_world;
 
 int main(int argc, char **argv){
-    controller::Agent_operational_limits limits;
-    limits.load("../config/ghost_operational_limits.json");
+    auto configuration = World_configuration::get_from_parameters_name("hexagonal");
+    auto vr_implementation = World_implementation::get_from_parameters_name("hexagonal", "vr");
+    auto canonical_implementation = World_implementation::get_from_parameters_name("hexagonal", "canonical");
+    auto vr_world = World(configuration, vr_implementation);
 
-    Vr_server vr_server;
-    vr_server.ghost_min_distance = 300;
-
-    auto configuration = Resources::from("world_configuration").key("hexagonal").get_resource<World_configuration>();
-    auto implementation = Resources::from("world_implementation").key("hexagonal").key("vr").get_resource<World_implementation>();
-    vr_server.tracking_space =  Resources::from("world_implementation").key("hexagonal").key("canonical").get_resource<World_implementation>().space;
-    auto capture_parameters = Resources::from("capture_parameters").key("default").get_resource<Capture_parameters>();
-    auto peeking_parameters = Resources::from("peeking_parameters").key("default").get_resource<Peeking_parameters>();
-
-
-    vr_server.set_world(configuration, implementation);
-    vr_server.ghost_min_distance = 300;
+    Vr_server vr_server(configuration,vr_implementation, canonical_implementation);
+    vr_server.ghost_min_distance = .25;
+    auto canonical_world = World(configuration,canonical_implementation);
+    auto visibility = canonical_world.create_location_visibility();
     vr_server.start(Vr_service::get_port());
-    auto &world = vr_server.world;
-    auto cells = world.create_cell_group();
-    Location_visibility visibility(cells, configuration.cell_shape, implementation.cell_transformation);
-    Capture capture(capture_parameters, world);
-    Peeking peeking(peeking_parameters, world);
-
-
-    auto &controller_experiment_client = vr_server.experiment_server.create_local_client<Controller_server::Controller_experiment_client>();
-    auto &controller_tracking_service = vr_server.tracking_server.create_local_client<Controller_server::Controller_tracking_client>(
-            visibility,
-            float(90),
-            capture,
-            peeking,
-            "predator",
-            "prey");
-
-    Ghost ghost(limits, vr_server);
-
-    Controller_server controller("../config/pid.json", ghost, controller_tracking_service, controller_experiment_client);
-    controller.start(Controller_service::get_port());
-
     cout << "server running "<< endl;
     vr_server.join();
 }

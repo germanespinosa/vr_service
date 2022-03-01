@@ -1,4 +1,5 @@
 #include <vr/ghost.h>
+#include <vr/vr_service.h>
 
 namespace vr {
     Ghost::Ghost(controller::Agent_operational_limits &limits, Vr_server &server) :
@@ -18,7 +19,7 @@ namespace vr {
     }
 
     void Ghost::capture() {
-        server.capture();
+        server.new_capture();
     }
 
     bool Ghost::update() {
