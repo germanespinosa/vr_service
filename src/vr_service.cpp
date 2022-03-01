@@ -136,6 +136,8 @@ namespace vr {
             ){
         pending_participant = false;
         experiment_client.vr_server = this;
+        experiment_tracking_client.experiment_server = &experiment_server;
+        experiment_tracking_client.subscribe();
         if (!experiment_server.start(Experiment_service::get_port())){
             cout << "Failed to start experiment service" << endl;
             exit(1);
