@@ -164,8 +164,11 @@ namespace vr {
         last_experiment_started.ghost_spawn_locations.clear();
         for (auto &cell:free_cells){
             auto location = cell.get().location;
-            if (prey_start_location.dist(location)>ghost_min_distance)
-                last_experiment_started.ghost_spawn_locations.push_back(location);
+
+            if (prey_start_location.dist(location)>ghost_min_distance) {
+                auto vr_location = vr_implementation.cell_locations[cell.get().id];
+                last_experiment_started.ghost_spawn_locations.push_back(vr_location);
+            }
         }
         pending_participant = true;
         std::cout << "Experiment " << experiment.experiment_name << " started, waiting for participant" << std::endl;
