@@ -84,12 +84,12 @@ namespace vr {
     Vr_finish_episode_response Vr_server::finish_episode(const Vr_finish_episode_request &parameters) {
         Vr_finish_episode_response response;
         if (active_experiments.contains(parameters.participant_id)){
-            thread async_finish_episode ( [this, parameters] () {
+//            thread async_finish_episode ( [this, parameters] () {
                 auto &experiment = active_experiments[parameters.participant_id];
                 experiment_client.finish_episode();
                 experiment.is_active = experiment_client.is_active(experiment.experiment_name);
-            });
-            async_finish_episode.detach();
+//            });
+//            async_finish_episode.detach();
         }
         return response;
     }
@@ -121,10 +121,8 @@ namespace vr {
             peeking(Resources::from("peeking_parameters").key("default").get_resource<Peeking_parameters>(), canonical_world),
             experiment_tracking_client(tracking_server.create_local_client<Experiment_tracking_client>()),
             controller_tracking_client(tracking_server.create_local_client<Controller_server::Controller_tracking_client>(
-                    canonical_visibility,
+                    canonical_world,
                     float(90),
-                    capture,
-                    peeking,
                     "predator",
                     "prey")),
             ghost_operational_limits(json_cpp::Json_from_file<Agent_operational_limits>("../config/ghost_operational_limits.json")),
@@ -153,6 +151,7 @@ namespace vr {
         capture.visibility.update_occlusions(cells);
         peeking.peeking_visibility.update_occlusions(cells);
         controller_server.navigability.update_occlusions(cells);
+        controller_tracking_client.set_occlusions(cells);
     }
 
     void Vr_server::on_experiment_started(const Start_experiment_response &experiment) {

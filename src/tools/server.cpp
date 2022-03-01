@@ -16,7 +16,7 @@ int main(int argc, char **argv){
     auto vr_implementation = World_implementation::get_from_parameters_name("hexagonal", "vr");
     auto canonical_implementation = World_implementation::get_from_parameters_name("hexagonal", "canonical");
     auto vr_world = World(configuration, vr_implementation);
-
+    vr_implementation.scale(Scale(-1,1));
     Vr_server vr_server(configuration,vr_implementation, canonical_implementation);
     vr_server.ghost_min_distance = .25;
     auto canonical_world = World(configuration,canonical_implementation);
