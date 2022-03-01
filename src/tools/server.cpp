@@ -12,6 +12,8 @@ using namespace experiment;
 using namespace cell_world;
 
 int main(int argc, char **argv){
+    Experiment_service::set_logs_folder("experiments/");
+    Controller_service::set_logs_folder("controller/");
     auto configuration = World_configuration::get_from_parameters_name("hexagonal");
     auto vr_implementation = World_implementation::get_from_parameters_name("hexagonal", "vr");
     auto canonical_implementation = World_implementation::get_from_parameters_name("hexagonal", "canonical");
