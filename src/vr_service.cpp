@@ -77,6 +77,7 @@ namespace vr {
         experiment_client.start_episode(experiment.experiment_name);
         response.occlusions = experiment.occlusions;
         response.predator_spawn_location = experiment.ghost_spawn_locations[cell_world::Chance::dice(experiment.ghost_spawn_locations.size())];
+        episode_in_progress = true;
         cout << response << endl;
         return response;
     }
@@ -84,12 +85,10 @@ namespace vr {
     Vr_finish_episode_response Vr_server::finish_episode(const Vr_finish_episode_request &parameters) {
         Vr_finish_episode_response response;
         if (active_experiments.contains(parameters.participant_id)){
-//            thread async_finish_episode ( [this, parameters] () {
-                auto &experiment = active_experiments[parameters.participant_id];
-                experiment_client.finish_episode();
-                experiment.is_active = experiment_client.is_active(experiment.experiment_name);
-//            });
-//            async_finish_episode.detach();
+            auto &experiment = active_experiments[parameters.participant_id];
+            experiment_client.finish_episode();
+            experiment.is_active = experiment_client.is_active(experiment.experiment_name);
+            episode_in_progress = false;
         }
         return response;
     }
@@ -174,6 +173,14 @@ namespace vr {
         std::cout << "Experiment " << experiment.experiment_name << " started, waiting for participant" << std::endl;
     }
 
+    void Vr_server::chasing() {
+        broadcast_subscribed(Message("chasing"));
+    }
+
+    void Vr_server::exploring() {
+        broadcast_subscribed(Message("exploring"));
+    }
+
     void Vr_server::Vr_experiment_client::on_experiment_started(const Start_experiment_response &experiment) {
         vr_server->on_experiment_started(experiment);
     }
@@ -188,4 +195,11 @@ namespace vr {
         }
     }
 
+    void Vr_server::Vr_experiment_client::on_behavior_set(int behavior) {
+        if (behavior == 1) {
+            vr_server->chasing();
+        }else {
+            vr_server->exploring();
+        }
+    }
 }

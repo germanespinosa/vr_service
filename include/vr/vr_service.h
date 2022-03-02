@@ -31,6 +31,7 @@ namespace vr {
         struct Vr_experiment_client : experiment::Experiment_client {
             void on_experiment_started(const experiment::Start_experiment_response  &experiment) override;
             void on_experiment_finished(const std::string &experiment_name) override;
+            void on_behavior_set(int behavior) override;
             Vr_server *vr_server;
         };
         struct Active_experiment_data {
@@ -50,6 +51,8 @@ namespace vr {
         void on_new_connection(Vr_service &new_connection) override;
         void set_agent_state (const Agent_state &);
         void set_occlusions(const cell_world::Cell_group_builder &occlusions);
+        void chasing();
+        void exploring();
 
         experiment::Experiment_server experiment_server;
         agent_tracking::Tracking_server tracking_server;
@@ -81,6 +84,7 @@ namespace vr {
         float forward_speed = .5;
         float rotation_speed = .5;
         float ghost_min_distance = 0;
+        bool episode_in_progress= false;
     };
 
 }
