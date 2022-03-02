@@ -174,10 +174,12 @@ namespace vr {
     }
 
     void Vr_server::chasing() {
+        cout << "Ghost behavior set to chasing" << endl;
         broadcast_subscribed(Message("chasing"));
     }
 
     void Vr_server::exploring() {
+        cout << "Ghost behavior set to exploring" << endl;
         broadcast_subscribed(Message("exploring"));
     }
 
