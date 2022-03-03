@@ -50,10 +50,12 @@ namespace vr {
     }
 
     void Vr_server::new_capture() {
+        cout << "New capture" << endl;
         broadcast_subscribed(Message("capture"));
     }
 
     cell_world::World_implementation Vr_server::get_world_implementation() const {
+        cout << "Implementation sent" << endl;
         return vr_implementation;
     }
 
