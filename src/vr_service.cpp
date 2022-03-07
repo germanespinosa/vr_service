@@ -208,4 +208,8 @@ namespace vr {
             vr_server->exploring();
         }
     }
+
+    void Vr_server::Vr_experiment_client::on_capture(int frame) {
+        vr_server->broadcast_subscribed(Message("capture"));
+    }
 }

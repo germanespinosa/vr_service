@@ -32,6 +32,7 @@ namespace vr {
             void on_experiment_started(const experiment::Start_experiment_response  &experiment) override;
             void on_experiment_finished(const std::string &experiment_name) override;
             void on_behavior_set(int behavior) override;
+            void on_capture(int frame) override;
             Vr_server *vr_server;
         };
         struct Active_experiment_data {
