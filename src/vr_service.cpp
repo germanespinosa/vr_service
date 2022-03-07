@@ -135,6 +135,8 @@ namespace vr {
                 experiment_server.create_local_client<Controller_server::Controller_experiment_client>()),
                 experiment_client(experiment_server.create_local_client<Vr_experiment_client>()
             ){
+        tracking_server.start(Tracking_service::get_port());
+        controller_server.start(Controller_service::get_port());
         pending_participant = false;
         experiment_client.vr_server = this;
         experiment_tracking_client.experiment_server = &experiment_server;
