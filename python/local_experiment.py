@@ -65,7 +65,8 @@ tracking_client = TrackingClient()
 if not tracking_client.connect():
     print("Failed to connect to agent_tracking service")
     exit(1)
-tracking_client.set_throughput(5)
+tracking_client.set_request_time_out(100000)
+tracking_client.set_throughput(10)
 tracking_client.subscribe()
 
 
@@ -128,7 +129,7 @@ display.set_agent_marker("predator", Agent_markers.arrow())
 display.set_agent_marker("prey", Agent_markers.arrow())
 
 local_prey_step = Step(agent_name="prey")
-experiment = experiment_service.start_experiment("TEST", "TEST", "hexagonal", "canonical", "10_02", "TEST", 2)
+experiment = experiment_service.start_experiment("TEST", "TEST", "hexagonal", "canonical", "10_03", "TEST", 2)
 
 
 last_chasing_destination_timer = Timer(0)
@@ -140,18 +141,33 @@ def reached(position: Location, destination:Location):
     return position.dist(destination) < world.implementation.cell_transformation.size
 
 
+old_behavior = ControllerClient.Behavior.Explore
+
+
+def set_behavior(new_behavior: int):
+    global old_behavior
+    if new_behavior != old_behavior:
+        controller.set_behavior(new_behavior)
+        old_behavior = new_behavior
+
+
+
+
 while True:
 
     while not episode_in_progress: #wait for the episode to start
         display.update()
 
+    display.set_occlusions(occlusions)
+
     while episode_in_progress: #run until episode is finished
         if prey.is_valid:
-            display.agent(step=prey.step, color="red", size=20)
+            set_behavior(ControllerClient.Behavior.Pursue)
             if last_chasing_destination_timer.time_out(): #it can see the prey so let's go towards it
                 set_destination(prey.step.location)
                 last_chasing_destination_timer = Timer(.5)
         else:
+            set_behavior(ControllerClient.Behavior.Explore)
             if "prey" in tracking_client.current_states:
                 display.agent(step=tracking_client.get_current_state("prey"), color="green", size=15)
             if last_exploring_destination_timer.time_out() or reached(predator.step.location, last_exploring_destination):

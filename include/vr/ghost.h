@@ -20,7 +20,7 @@ namespace vr {
         Vr_server &server;
         float left{};
         float right{};
-        float rotation_speed{1};
+        float rotation_speed{.5};
         float forward_speed{2};
         bool need_update = false;
     };
