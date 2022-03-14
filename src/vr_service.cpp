@@ -123,7 +123,7 @@ namespace vr {
             experiment_tracking_client(tracking_server.create_local_client<Experiment_tracking_client>()),
             controller_tracking_client(tracking_server.create_local_client<Controller_server::Controller_tracking_client>(
                     canonical_world,
-                    float(90),
+                    float(180),
                     "predator",
                     "prey")),
             ghost_operational_limits(json_cpp::Json_from_file<Agent_operational_limits>("../config/ghost_operational_limits.json")),
