@@ -108,6 +108,7 @@ last_destination_update = None
 last_destination_sent = None
 
 
+
 def set_destination(destination: Location):
     global last_destination_update
     global controller
