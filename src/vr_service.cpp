@@ -155,6 +155,7 @@ namespace vr {
         auto cells = canonical_world.create_cell_group();
         capture.visibility.update_occlusions(cells);
         peeking.peeking_visibility.update_occlusions(cells);
+        controller_server.navigability.cell_transformation.size = canonical_world.cell_transformation.size * 1.2;
         controller_server.navigability.update_occlusions(cells);
         controller_tracking_client.set_occlusions(cells);
     }
