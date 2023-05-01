@@ -14,6 +14,8 @@ namespace vr {
 
         void capture() override;
 
+        void end_capture() override{};
+
         bool update() override;
 
         controller::Agent_operational_limits &limits;

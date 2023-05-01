@@ -10,9 +10,9 @@ namespace vr {
                 Add_member(y);
                 Add_member(z);
                 );
-        double x;
-        double y;
-        double z;
+        float x;
+        float y;
+        float z;
         bool operator == (const Location3 &) const;
         cell_world::Location to_location() const;
     };
@@ -23,9 +23,9 @@ namespace vr {
                 Add_member(pitch);
                 Add_member(yaw);
                 );
-        double roll;
-        double pitch;
-        double yaw;
+        float roll;
+        float pitch;
+        float yaw;
         bool operator == (const Rotation3 &) const;
     };
 
@@ -39,7 +39,7 @@ namespace vr {
                 Add_member(location);
                 Add_member(rotation);
                 );
-        double time_stamp;
+        float time_stamp;
         unsigned int frame;
         Location3 location;
         Rotation3 rotation;
