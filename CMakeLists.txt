@@ -25,27 +25,27 @@ endif()
 #### END DEPENDENCIES
 ####
 
-install_git_dependency(Cellworld https://github.com/germanespinosa/cellworld
+install_git_dependency(Cellworld https://github.com/cellworld/cellworld
         CMAKE_PROJECT
         IMPORT_TARGETS cellworld json-cpp)
-install_git_dependency(Easy-tcp https://github.com/germanespinosa/easy-tcp
+install_git_dependency(Easy-tcp https://github.com/cellworld/dependency_easy-tcp
         CMAKE_PROJECT
         IMPORT_TARGETS easy-tcp)
-install_git_dependency(Tcp_messages https://github.com/germanespinosa/tcp-messages
+install_git_dependency(Tcp_messages https://github.com/cellworld/dependency_tcp-messages
         CMAKE_PROJECT
         IMPORT_TARGETS tcp_messages)
-install_git_dependency(Agent_tracking https://github.com/germanespinosa/agent_tracking
+install_git_dependency(Agent_tracking https://github.com/cellworld/cellworld_agent_tracking
         CMAKE_PROJECT
         IMPORT_TARGETS agent_tracking)
-install_git_dependency(Experiment_service https://github.com/germanespinosa/experiment_service
+install_git_dependency(Experiment_service https://github.com/cellworld/cellworld_experiment_service
         CMAKE_PROJECT
         IMPORT_TARGETS experiment_service)
 
-install_git_dependency(Params-cpp https://github.com/germanespinosa/params-cpp
+install_git_dependency(Params-cpp https://github.com/cellworld/dependency_params-cpp
         CMAKE_PROJECT
         IMPORT_TARGETS params-cpp)
 
-install_git_dependency(Controller https://github.com/germanespinosa/cellworld_pid_controller
+install_git_dependency(Controller https://github.com/cellworld/cellworld_pid_controller
         CMAKE_PROJECT
         IMPORT_TARGETS controller)
 
